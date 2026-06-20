@@ -60,7 +60,7 @@ const Place = gt.build(gt.table {
 	folderName = gt.optional(gt.string()),
 	placeId = gt.optional(gt.string()),
 	globals = gt.optional(Globals:type()),
-	dependencies = gt.optional(gt.dictionary(gt.string(), gt.literal(true) :: true)),
+	dependencies = gt.optional(gt.array(gt.string())),
 })
 
 const PlaceMixin = gt.build(gt.table {

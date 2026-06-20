@@ -115,7 +115,7 @@ function Workspace.resolveDependencies(self: Workspace, member: WorkspaceMember)
 		visiting[current.dirName] = true
 		table.insert(stack, current.dirName)
 
-		for dependencyName in place.dependencies or {} do
+		for _, dependencyName in place.dependencies or {} do
 			local dependency = self.dirToMembers[dependencyName]
 				or error(`place {current.dirName} has unknown dependency named {dependencyName}`)
 			visit(dependency, stack)

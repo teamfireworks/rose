@@ -1,8 +1,8 @@
 local cli = {}
 cli.__index = cli
 
-type ArgKind = "positional" | "flag" | "option" | "variadic"
-type ArgOptions = {
+export type ArgKind = "positional" | "flag" | "option" | "variadic"
+export type ArgOptions = {
 	help: string?,
 	aliases: { string }?,
 	default: string?,
@@ -10,20 +10,20 @@ type ArgOptions = {
 	hidden: boolean?,
 }
 
-type ArgData = {
+export type ArgData = {
 	name: string,
 	kind: ArgKind,
 	options: ArgOptions,
 }
 
-type ParseResult = {
+export type ParseResult = {
 	values: { [string]: string? },
 	flags: { [string]: boolean },
 	variadics: { string },
 	fwdArgs: { string },
 }
 
-type ParserData = {
+export type ParserData = {
 	arguments: { [number]: ArgData },
 	positional: { [number]: ArgData },
 	variadicArg: ArgData?,
@@ -220,9 +220,7 @@ function cli.help(self: Parser, formatter: ((s: string) -> string)?): ()
 
 	print(fmt "Usage:")
 	for _, argument in self.arguments do
-		if argument.options.hidden then
-			continue
-		end
+		if argument.options.hidden then continue end
 
 		local aliasStr = table.concat(argument.options.aliases or {}, ", ")
 		local reqStr = if argument.options.required then "(required) " else ""

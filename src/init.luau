@@ -1,9 +1,18 @@
-const pp = require "@rose/batteries/pp"
-const Workspace = require "@rose/workspace/Workspace"
-const loadWorkspaceConfig = require "@rose/workspace/loadWorkspaceConfig"
+const runCommands = require "@rose/cli/runCommands"
+const process = require "@std/process"
 
-const config = loadWorkspaceConfig()
-if config.success then
-	const workspace = Workspace.fromConfig(config.value)
-	if workspace.success then print(pp(workspace)) end
+const args = { ... }
+table.remove(args, 1)
+
+const runResult = runCommands(args, {
+	ls = require "@self/cli/commands/ls",
+})
+
+if runResult.success then
+	process.exit(0)
+else
+	print("Failed to run command:", runResult.err)
+	print "Traceback:"
+	print(runResult.traceback)
+	process.exit(1)
 end
