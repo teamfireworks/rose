@@ -1,20 +1,16 @@
 const glob = require "@rose/batteries/glob"
 const result = require "@rose/batteries/result"
 const configuration = require "@rose/configuration"
+const loadConfig = require "@rose/workspace/loadConfig"
 const fs = require "@std/fs"
-const luau = require "@std/luau"
 const path = require "@std/path"
 
-export type WorkspaceMember = {
-	place: configuration.Place,
-	placeMixin: configuration.PlaceMixin,
+const CONFIG_FILE_NAME = ".config.luau"
 
-	dirName: string,
-	dirPath: path.Pathlike,
-	configPath: path.Pathlike,
-}
+const Workspace = {}
+Workspace.__index = Workspace
 
-export type Workspace = {
+type WorkspaceData = {
 	buildDir: path.Pathlike,
 	buildProject: path.Pathlike,
 	sourcemapProject: path.Pathlike,
@@ -28,24 +24,18 @@ export type Workspace = {
 	dirToMembers: { [string]: WorkspaceMember },
 }
 
-const CONFIG_FILE_NAME = ".config.luau"
+export type WorkspaceMember = {
+	place: configuration.Place,
+	placeMixin: configuration.PlaceMixin,
 
-const function loadConfig(filepath: path.Pathlike): result.Result<configuration.LuauConfig>
-	const module = luau.loadModule(filepath)
-	const isConfig, configError = configuration.LuauConfig:matches(module)
-	return if isConfig then result.ok(module) else result.fail(configError:formatErr())
-end
+	dirName: string,
+	dirPath: path.Pathlike,
+	configPath: path.Pathlike,
+}
 
-const function loadWorkspaceConfig(): result.Result<configuration.Workspace>
-	const configResult = loadConfig(CONFIG_FILE_NAME)
-	return if configResult.success
-		then if configResult.value.rose and configResult.value.rose.workspace
-			then result.ok(configResult.value.rose.workspace)
-			else result.fail "configuration missing rose.workspace field"
-		else configResult
-end
+export type Workspace = setmetatable<WorkspaceData, typeof(Workspace)>
 
-const function resolveWorkspaceMember(workspace: Workspace, dirPath: path.Pathlike): result.Result<WorkspaceMember>
+const function tryResolveMember(dirPath: path.Pathlike): result.Result<WorkspaceMember>
 	if fs.type(dirPath) ~= "dir" then return result.fail "expected directory" end
 
 	const configPath = path.join(dirPath, CONFIG_FILE_NAME)
@@ -71,10 +61,10 @@ const function resolveWorkspaceMember(workspace: Workspace, dirPath: path.Pathli
 	return result.ok(member)
 end
 
-const function resolveWorkspace(workspaceConfig: configuration.Workspace): result.Result<Workspace>
+function Workspace.fromConfig(workspaceConfig: configuration.Workspace): result.Result<Workspace>
 	const paths = workspaceConfig.paths or {} :: never
 
-	const workspace: Workspace = {
+	const self: WorkspaceData = {
 		buildDir = paths.buildDir or ".build",
 		buildProject = paths.buildProject or "default.project.json",
 		sourcemapProject = paths.sourcemapProject or "sourcemap.project.json",
@@ -90,22 +80,22 @@ const function resolveWorkspace(workspaceConfig: configuration.Workspace): resul
 
 	for _, pattern in workspaceConfig.members do
 		for _, dirPath in glob.discover(pattern) do
-			const memberResult = resolveWorkspaceMember(workspace, dirPath)
+			const memberResult = tryResolveMember(dirPath)
 			if memberResult.success then
 				const member = memberResult.value
-				if workspace.dirToMembers[member.dirName] then
+				if self.dirToMembers[member.dirName] then
 					return result.fail(`conflicting dir name {string.format("%q", path.basename(dirPath) :: string)}`)
 				end
-				workspace.dirToMembers[member.dirName] = member
-				table.insert(workspace.members, memberResult.value)
+				self.dirToMembers[member.dirName] = member
+				table.insert(self.members, memberResult.value)
 			end
 		end
 	end
 
-	return result.ok(workspace)
+	return result.ok(setmetatable(self, Workspace))
 end
 
-const function resolveDependencies(workspace: Workspace, member: WorkspaceMember): result.Result<{ WorkspaceMember }>
+function Workspace.resolveDependencies(self: Workspace, member: WorkspaceMember): result.Result<{ WorkspaceMember }>
 	local resolved, resolvedSet, visiting = {}, {}, {}
 
 	local function visit(current: WorkspaceMember, stack: { string })
@@ -126,7 +116,7 @@ const function resolveDependencies(workspace: Workspace, member: WorkspaceMember
 		table.insert(stack, current.dirName)
 
 		for dependencyName in place.dependencies or {} do
-			local dependency = workspace.dirToMembers[dependencyName]
+			local dependency = self.dirToMembers[dependencyName]
 				or error(`place {current.dirName} has unknown dependency named {dependencyName}`)
 			visit(dependency, stack)
 
@@ -145,16 +135,9 @@ const function resolveDependencies(workspace: Workspace, member: WorkspaceMember
 	return result.pcall(visit, member, {} :: { string })
 end
 
-local function resolveWorkspaceMemberFromPath(workspace: Workspace, filepath: path.Pathlike): WorkspaceMember?
+function Workspace.resolveMemberFromPath(self: Workspace, filepath: path.Pathlike): WorkspaceMember?
 	local firstPart = path.parse(filepath).parts[1]
-	return workspace.dirToMembers[firstPart]
+	return self.dirToMembers[firstPart]
 end
 
-return table.freeze {
-	loadConfig = loadConfig,
-	loadWorkspaceConfig = loadWorkspaceConfig,
-	resolveWorkspaceMember = resolveWorkspaceMember,
-	resolveWorkspace = resolveWorkspace,
-	resolveDependencies = resolveDependencies,
-	resolveWorkspaceMemberFromPath = resolveWorkspaceMemberFromPath,
-}
+return table.freeze(Workspace)

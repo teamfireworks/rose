@@ -1,5 +1,9 @@
 const pp = require "@rose/batteries/pp"
-const resolver = require "@rose/resolver"
+const Workspace = require "@rose/workspace/Workspace"
+const loadWorkspaceConfig = require "@rose/workspace/loadWorkspaceConfig"
 
-const result = resolver.loadWorkspaceConfig()
-if result.success then print(pp(resolver.resolveWorkspace(result.value))) end
+const config = loadWorkspaceConfig()
+if config.success then
+	const workspace = Workspace.fromConfig(config.value)
+	if workspace.success then print(pp(workspace)) end
+end
