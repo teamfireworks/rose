@@ -69,7 +69,7 @@ return {
 				sourcemapProject = "sourcemap.project.json",
 				sourcemap = "sourcemap.json",
 				
-				-- Mappings of directories in a workspace member to it's
+				-- Mappings of directories in a workspace place to it's
 				-- Rojo parent. 
 				-- 
 				-- Path components can specify the key (name), alongside it's
@@ -77,7 +77,7 @@ return {
 				-- be used to build out Rojo projects.
 				-- 
 				-- This is an excerpt from our Welcome To Hell:
-				dirMappings = {
+				placeMappings = {
 					client = {
 						{ name = "ReplicatedStorage" },
 						{ name = "Internal", className = "Folder" },
@@ -100,10 +100,10 @@ return {
 					},
 				},
 
-				-- Base tree for all workspace members to inherit.
+				-- Base tree for all workspace places to inherit.
 				-- This is where you can set shared properties like R6 or
 				-- server authority.
-				baseTree = {
+				placeTree = {
 					["$className"] = "DataModel",
 					Workspace = {
 						["$properties"] = {}

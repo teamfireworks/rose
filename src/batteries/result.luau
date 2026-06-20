@@ -1,15 +1,15 @@
-type T<Value> = | { success: true, value: Value } | { success: false, traceback: string, err: string }
+export type Result<Value> = | { success: true, value: Value } | { success: false, traceback: string, err: string }
 
 local result = {}
 
-function result.ok<Value>(value: Value): T<Value>
+function result.ok<Value>(value: Value): Result<Value>
 	return {
 		success = true,
 		value = value,
 	}
 end
 
-function result.fail<Value>(err: string): T<Value>
+function result.fail<Value>(err: string): Result<any>
 	-- Ignore the current call to debug.traceback, and the call to fail.
 	local traceback = debug.traceback(nil, 2)
 
@@ -21,7 +21,7 @@ function result.fail<Value>(err: string): T<Value>
 	}
 end
 
-function result.pcall<R, T...>(f: (T...) -> R, ...: T...): T<R>
+function result.pcall<R, T...>(f: (T...) -> R, ...: T...): Result<R>
 	local success, value = pcall(f, ...)
 
 	if success then
