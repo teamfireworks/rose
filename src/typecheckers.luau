@@ -1,5 +1,4 @@
-const rojo = require "@src/types/rojo"
-const gt = require "@src/vendor/gt"
+const gt = require "@rose/vendor/gt"
 
 const RojoPath = gt.build(gt.union(gt.string(), gt.table { optional = gt.string() }))
 
@@ -31,25 +30,25 @@ const MappingSegment = gt.build(gt.table { name = gt.string(), className = gt.op
 const Mapping = gt.build(gt.array(MappingSegment:type()))
 
 const Globals = gt.build(gt.dictionary(gt.string(), gt.table { value = gt.unknown() }))
-const Profile = gt.build(gt.table { globals = Globals:type() })
+const Profile = gt.build(gt.table { globals = gt.optional(Globals:type()) })
 const Casing = gt.build(
 	gt.union(gt.literal "camel", gt.literal "snake", gt.literal "pascal", gt.literal "kebab") :: "camel" | "snake" | "pascal" | "kebab"
 )
 
 const Workspace = gt.build(gt.table {
 	name = gt.string(),
-	members = gt.string(),
-	paths = gt.table {
+	members = gt.array(gt.string()),
+	paths = gt.optional(gt.table {
 		buildDir = gt.optional(gt.string()),
 		buildProject = gt.optional(gt.string()),
 		sourcemapProject = gt.optional(gt.string()),
 		sourcemap = gt.optional(gt.string()),
-	},
+	}),
 	build = gt.table {
-		globals = Globals:type(),
+		globals = gt.optional(Globals:type()),
 		place = gt.table {
 			folderCasing = gt.optional(Casing),
-			baseProject = gt.optional(rojo.Project:type()),
+			baseProject = gt.optional(RojoProject:type()),
 			dirMappings = gt.dictionary(gt.string(), Mapping:type()),
 		},
 	},
@@ -70,12 +69,12 @@ const PlaceMixin = gt.build(gt.table {
 	mapping = Mapping,
 })
 
-const LuauConfiguration = gt.build(gt.table {
-	rose = gt.table {
-		workspace = Workspace:type(),
-		place = Place:type(),
-		placeMixin = PlaceMixin:type(),
-	},
+const LuauConfig = gt.build(gt.table {
+	rose = gt.optional(gt.table {
+		workspace = gt.optional(Workspace:type()),
+		place = gt.optional(Place:type()),
+		placeMixin = gt.optional(PlaceMixin:type()),
+	}),
 })
 
 export type RojoPath = typeof(RojoPath:type())
@@ -89,7 +88,7 @@ export type Casing = typeof(Casing:type())
 export type Workspace = typeof(Workspace:type())
 export type Place = typeof(Place:type())
 export type PlaceMixin = typeof(PlaceMixin:type())
-export type LuauConfiguration = typeof(LuauConfiguration:type())
+export type LuauConfig = typeof(LuauConfig:type())
 
 return table.freeze {
 	RojoPath = RojoPath,
@@ -103,5 +102,5 @@ return table.freeze {
 	Workspace = Workspace,
 	Place = Place,
 	PlaceMixin = PlaceMixin,
-	LuauConfiguration = LuauConfiguration,
+	LuauConfig = LuauConfig,
 }

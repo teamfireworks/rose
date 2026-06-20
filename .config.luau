@@ -8,8 +8,7 @@ return {
 			lute = "~/.lute/typedefs/1.0.0/lute",
 			lint = "~/.lute/typedefs/1.0.0/lint",
 			-- Rose
-			src = "src",
-			batteries = "src/batteries",
+			rose = "src",
 		},
 	},
 }
