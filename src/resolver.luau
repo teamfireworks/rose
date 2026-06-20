@@ -7,18 +7,11 @@ const path = require "@std/path"
 
 export type WorkspaceMember = {
 	place: configuration.Place,
-	placeBuildDirPath: path.Pathlike,
-
 	placeMixin: configuration.PlaceMixin,
 
 	dirName: string,
 	dirPath: path.Pathlike,
 	configPath: path.Pathlike,
-
-	mappings: {
-		build: { [string]: path.Pathlike },
-		sourcemap: { [string]: path.Pathlike },
-	},
 }
 
 export type Workspace = {
@@ -66,23 +59,13 @@ const function resolveWorkspaceMember(workspace: Workspace, dirPath: path.Pathli
 	if config.workspace then return result.fail(`expected rose.place or rose.placeMixin, got rose.workspace`) end
 	if config.place and config.placeMixin then result.fail(`rose.place and rose.placeMixin is mutually exclusive`) end
 
-	const dirName = path.basename(dirPath) :: string
-	const mappings: index<WorkspaceMember, "mappings"> = { build = {}, sourcemap = {} }
-	for mappingDir in workspace.build.place.dirMappings do
-		mappings.build[mappingDir] = path.join(workspace.buildDir, dirName, mappingDir)
-		mappings.sourcemap[mappingDir] = path.join(dirPath, mappingDir)
-	end
-
 	const member: WorkspaceMember = {
 		place = config.place :: configuration.Place,
-		placeBuildDirPath = path.join(workspace.buildDir, dirName),
 		placeMixin = config.placeMixin :: configuration.PlaceMixin,
 
-		dirName = dirName,
+		dirName = path.basename(dirPath) :: string,
 		dirPath = dirPath,
 		configPath = configPath,
-
-		mappings = mappings,
 	}
 
 	return result.ok(member)
@@ -122,7 +105,56 @@ const function resolveWorkspace(workspaceConfig: configuration.Workspace): resul
 	return result.ok(workspace)
 end
 
+const function resolveDependencies(workspace: Workspace, member: WorkspaceMember): result.Result<{ WorkspaceMember }>
+	local resolved, resolvedSet, visiting = {}, {}, {}
+
+	local function visit(current: WorkspaceMember, stack: { string })
+		local place = current.place
+		if not place then return resolved end
+
+		if visiting[current.dirName] then
+			local cycleStart = table.find(stack, current.dirName) or 1
+			local cycle = table.move(stack, cycleStart, #stack, 1, {})
+			table.insert(cycle, current.dirName)
+
+			error(`place has cyclic dependency: {table.concat(cycle, " -> ")}`)
+		end
+
+		if resolvedSet[current.dirName] then return resolved end
+
+		visiting[current.dirName] = true
+		table.insert(stack, current.dirName)
+
+		for dependencyName in place.dependencies or {} do
+			local dependency = workspace.dirToMembers[dependencyName]
+				or error(`place {current.dirName} has unknown dependency named {dependencyName}`)
+			visit(dependency, stack)
+
+			if not resolvedSet[dependency.dirName] then
+				resolvedSet[dependency.dirName] = true
+				table.insert(resolved, dependency)
+			end
+		end
+
+		visiting[current.dirName] = nil
+		table.remove(stack)
+
+		return resolved
+	end
+
+	return result.pcall(visit, member, {} :: { string })
+end
+
+local function resolveWorkspaceMemberFromPath(workspace: Workspace, filepath: path.Pathlike): WorkspaceMember?
+	local firstPart = path.parse(filepath).parts[1]
+	return workspace.dirToMembers[firstPart]
+end
+
 return table.freeze {
+	loadConfig = loadConfig,
 	loadWorkspaceConfig = loadWorkspaceConfig,
+	resolveWorkspaceMember = resolveWorkspaceMember,
 	resolveWorkspace = resolveWorkspace,
+	resolveDependencies = resolveDependencies,
+	resolveWorkspaceMemberFromPath = resolveWorkspaceMemberFromPath,
 }
