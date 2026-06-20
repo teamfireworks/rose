@@ -1,6 +1,32 @@
 const rojo = require "@src/types/rojo"
 const gt = require "@src/vendor/gt"
 
+const RojoPath = gt.build(gt.union(gt.string(), gt.table { optional = gt.string() }))
+
+const RojoInstanceTable = {
+	["$className"] = gt.optional(gt.string()),
+	["$ignoreUnknownInstances"] = gt.optional(gt.boolean()),
+	["$path"] = gt.optional(RojoPath:type()),
+	["$properties"] = gt.optional(gt.anyTable()),
+}
+
+const RojoInstance = gt.build(gt.table(RojoInstanceTable))
+RojoInstance[gt.string()] = Instance
+
+-- Note: name and tree is required, it's optional here so it can be used for
+-- workspace configuration
+const RojoProject = gt.build(gt.table {
+	name = gt.optional(gt.string()),
+	tree = gt.optional(RojoInstance:type()),
+	servePort = gt.optional(gt.number()),
+	servePlaceIds = gt.optional(gt.array(gt.number())),
+	placeId = gt.optional(gt.number()),
+	gameId = gt.optional(gt.number()),
+	serveAddress = gt.optional(gt.string()),
+	globIgnorePaths = gt.optional(gt.array(gt.string())),
+	emitLegacyScripts = gt.optional(gt.boolean()),
+})
+
 const MappingSegment = gt.build(gt.table { name = gt.string(), className = gt.optional(gt.string()) })
 const Mapping = gt.build(gt.array(MappingSegment:type()))
 
@@ -52,6 +78,9 @@ const LuauConfiguration = gt.build(gt.table {
 	},
 })
 
+export type RojoPath = typeof(RojoPath:type())
+export type RojoInstance = typeof(RojoInstance:type())
+export type RojoProject = typeof(RojoProject:type())
 export type MappingSegment = typeof(MappingSegment:type())
 export type Mapping = typeof(Mapping:type())
 export type Globals = typeof(Globals:type())
@@ -63,6 +92,9 @@ export type PlaceMixin = typeof(PlaceMixin:type())
 export type LuauConfiguration = typeof(LuauConfiguration:type())
 
 return table.freeze {
+	RojoPath = RojoPath,
+	RojoInstance = RojoInstance,
+	RojoProject = RojoProject,
 	MappingSegment = MappingSegment,
 	Mapping = Mapping,
 	Globals = Globals,
