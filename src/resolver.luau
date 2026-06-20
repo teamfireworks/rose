@@ -1,15 +1,15 @@
 const glob = require "@rose/batteries/glob"
 const result = require "@rose/batteries/result"
-const typecheckers = require "@rose/typecheckers"
+const configuration = require "@rose/configuration"
 const fs = require "@std/fs"
 const luau = require "@std/luau"
 const path = require "@std/path"
 
 export type WorkspaceMember = {
-	place: typecheckers.Place,
+	place: configuration.Place,
 	placeBuildDirPath: path.Pathlike,
 
-	placeMixin: typecheckers.PlaceMixin,
+	placeMixin: configuration.PlaceMixin,
 
 	dirName: string,
 	dirPath: path.Pathlike,
@@ -28,8 +28,8 @@ export type Workspace = {
 	sourcemap: path.Pathlike,
 
 	name: string,
-	build: index<typecheckers.Workspace, "build">,
-	profiles: index<typecheckers.Workspace, "profiles">,
+	build: index<configuration.Workspace, "build">,
+	profiles: index<configuration.Workspace, "profiles">,
 
 	members: { WorkspaceMember },
 	dirToMembers: { [string]: WorkspaceMember },
@@ -37,13 +37,13 @@ export type Workspace = {
 
 const CONFIG_FILE_NAME = ".config.luau"
 
-const function loadConfig(filepath: path.Pathlike): result.Result<typecheckers.LuauConfig>
+const function loadConfig(filepath: path.Pathlike): result.Result<configuration.LuauConfig>
 	const module = luau.loadModule(filepath)
-	const isConfig, configError = typecheckers.LuauConfig:matches(module)
+	const isConfig, configError = configuration.LuauConfig:matches(module)
 	return if isConfig then result.ok(module) else result.fail(configError:formatErr())
 end
 
-const function loadWorkspaceConfig(): result.Result<typecheckers.Workspace>
+const function loadWorkspaceConfig(): result.Result<configuration.Workspace>
 	const configResult = loadConfig(CONFIG_FILE_NAME)
 	return if configResult.success
 		then if configResult.value.rose and configResult.value.rose.workspace
@@ -74,9 +74,9 @@ const function resolveWorkspaceMember(workspace: Workspace, dirPath: path.Pathli
 	end
 
 	const member: WorkspaceMember = {
-		place = config.place :: typecheckers.Place,
+		place = config.place :: configuration.Place,
 		placeBuildDirPath = path.join(workspace.buildDir, dirName),
-		placeMixin = config.placeMixin :: typecheckers.PlaceMixin,
+		placeMixin = config.placeMixin :: configuration.PlaceMixin,
 
 		dirName = dirName,
 		dirPath = dirPath,
@@ -88,7 +88,7 @@ const function resolveWorkspaceMember(workspace: Workspace, dirPath: path.Pathli
 	return result.ok(member)
 end
 
-const function resolveWorkspace(workspaceConfig: typecheckers.Workspace): result.Result<Workspace>
+const function resolveWorkspace(workspaceConfig: configuration.Workspace): result.Result<Workspace>
 	const paths = workspaceConfig.paths or {} :: never
 
 	const workspace: Workspace = {

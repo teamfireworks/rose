@@ -1,5 +1,5 @@
 const pp = require "@rose/batteries/pp"
-const discovery = require "@rose/discovery"
+const resolver = require "@rose/resolver"
 
-const result = discovery.loadWorkspaceConfig()
-if result.success then print(pp(discovery.resolveWorkspace(result.value))) end
+const result = resolver.loadWorkspaceConfig()
+if result.success then print(pp(resolver.resolveWorkspace(result.value))) end
