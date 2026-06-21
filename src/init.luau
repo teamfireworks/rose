@@ -7,6 +7,7 @@ table.remove(args, 1)
 const runResult = runCommands(args, {
 	ls = require "@self/cli/commands/ls",
 	ripple = require "@self/cli/commands/ripple",
+	ropen = require "@self/cli/commands/ropen",
 })
 
 if runResult.success then
