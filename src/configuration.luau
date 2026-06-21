@@ -29,7 +29,7 @@ const RojoProject = gt.build(gt.table {
 const MappingSegment = gt.build(gt.table { name = gt.string(), className = gt.optional(gt.string()) })
 const Mapping = gt.build(gt.array(MappingSegment:type()))
 
-const Globals = gt.build(gt.dictionary(gt.string(), gt.table { value = gt.unknown() }))
+const Globals = gt.build(gt.dictionary(gt.string(), gt.table { value = gt.optional(gt.unknown()) }))
 const Profile = gt.build(gt.table { globals = gt.optional(Globals:type()) })
 const Casing = gt.build(
 	gt.union(gt.literal "camel", gt.literal "snake", gt.literal "pascal", gt.literal "kebab") :: "camel" | "snake" | "pascal" | "kebab"
