@@ -9,7 +9,7 @@ function ls.onRun()
 	const workspace = assertWorkspace()
 	for _, member in workspace.members do
 		print(
-			`{format.padEnd(member.dirName, 24)} {member.place and "(Place)" or "(Mixin)"}: {path.format(member.dirPath)}`
+			`{format.padEnd(member.name, 24)} {member.place and "(Place)" or "(Mixin)"}: {path.format(member.dirPath)}`
 		)
 	end
 end

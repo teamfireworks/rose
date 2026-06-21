@@ -1,5 +1,6 @@
 const Command = require "@rose/cli/Command"
 const assertWorkspace = require "@rose/workspace/assertWorkspace"
+const assertWorkspacePlace = require "@rose/workspace/assertWorkspacePlace"
 const process = require "@std/process"
 const system = require "@std/system"
 
@@ -25,9 +26,8 @@ function ropen.onRun()
 	if placeId then return openDeeplink(formatEditPlaceUrl(placeId)) end
 
 	const workspace = assertWorkspace()
-	const member = workspace.dirToMembers[place] or error(`unknown workspace member named {place}`)
-	const memberPlace = member.place or error(`workspace member {place} must be a rose.place`)
-	const memberPlaceId = memberPlace.placeId or error(`workspace member {place} missing it's rose.place.placeId`)
+	const memberPlace = assertWorkspacePlace(workspace, place)
+	const memberPlaceId = memberPlace.placeId or error(`workspace member {place} is missing it's rose.place.placeId`)
 
 	openDeeplink(formatEditPlaceUrl(memberPlaceId))
 end

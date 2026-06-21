@@ -8,9 +8,9 @@ const process = require "@std/process"
 const task = require "@std/task"
 
 const ripple = Command.new { help = "Runs a command inside all workspace members" }
-ripple.args:add("concurrent", "flag", { help = "Run commands concurrently" })
-ripple.args:add("ignorestdio", "flag", { help = "Whether to hide stdio" })
-ripple.args:add("ignorefailure", "flag", { help = "Whether to disregard failures" })
+ripple.args:add("concurrent", "flag", { help = "Run commands concurrently", aliases = { "c" } })
+ripple.args:add("nostdio", "flag", { help = "Whether to hide stdio" })
+ripple.args:add("nofail", "flag", { help = "Whether to disregard failures" })
 ripple.args:add("command", "variadic", { help = "Command to execute" })
 
 const threads: { thread } = {}
@@ -18,9 +18,9 @@ const threads: { thread } = {}
 const function createRunOptions(member: Workspace.WorkspaceMember): process.ProcessSystemOptions
 	return {
 		cwd = path.format(member.dirPath),
-		stdio = if ripple.args:has "ignorestdio" then "none" else "inherit",
+		stdio = if ripple.args:has "nostdio" then "none" else "inherit",
 		env = {
-			ROSE_DIR_NAME = member.dirName,
+			ROSE_MEMBER_NAME = member.name,
 			ROSE_DIR_PATH = path.format(member.dirPath),
 			ROSE_CONFIG_PATH = path.format(member.configPath),
 		},
@@ -28,21 +28,26 @@ const function createRunOptions(member: Workspace.WorkspaceMember): process.Proc
 end
 
 const function runMemberCommand(command: string, member: Workspace.WorkspaceMember)
-	if not ripple.args:has "ignorestdio" then print(richterm.black(`{member.dirName}:`)) end
-	const runResult = process.system(command, createRunOptions(member))
+	const options = createRunOptions(member)
+	for key, value in options.env or {} :: never do
+		command = string.gsub(command, "{" .. key .. "}", value)
+	end
 
-	if runResult.ok or ripple.args:has "ignorefailure" then return end
+	print(`{member.name}: {richterm.dim(command)}`)
+
+	const runResult = process.system(command, options)
+	if runResult.ok or ripple.args:has "nofail" then return end
 
 	for _, thread in threads do
 		pcall(task.cancel, thread)
 	end
 
-	if ripple.args:has "ignorestdio" then
+	if ripple.args:has "nostdio" then
 		io.write(runResult.stdout)
 		io.write(runResult.stderr)
 	end
 
-	error(`command inside {member.dirName} failed with code {runResult.exitcode}`)
+	error(`command inside {member.name} failed with code {runResult.exitcode}`)
 end
 
 function ripple.onRun()

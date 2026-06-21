@@ -16,7 +16,7 @@ RojoInstance[gt.string()] = Instance
 -- workspace configuration
 const RojoProject = gt.build(gt.table {
 	name = gt.optional(gt.string()),
-	tree = gt.optional(RojoInstance:type()),
+	tree = gt.optional(RojoInstance:type() :: RojoInstance),
 	servePort = gt.optional(gt.number()),
 	servePlaceIds = gt.optional(gt.array(gt.number())),
 	placeId = gt.optional(gt.number()),
@@ -35,6 +35,9 @@ const Casing = gt.build(
 	gt.union(gt.literal "camel", gt.literal "snake", gt.literal "pascal", gt.literal "kebab") :: "camel" | "snake" | "pascal" | "kebab"
 )
 
+const Step = gt.build(gt.table { run = gt.optional(gt.string()), spawn = gt.optional(gt.string()) })
+const Steps = gt.build(gt.array(Step:type()))
+
 const Workspace = gt.build(gt.table {
 	name = gt.string(),
 	members = gt.array(gt.string()),
@@ -46,6 +49,7 @@ const Workspace = gt.build(gt.table {
 	}),
 	build = gt.table {
 		globals = gt.optional(Globals:type()),
+		preInit = gt.optional(Steps:type()),
 		place = gt.table {
 			folderCasing = gt.optional(Casing),
 			baseProject = gt.optional(RojoProject:type()),
@@ -56,6 +60,7 @@ const Workspace = gt.build(gt.table {
 })
 
 const Place = gt.build(gt.table {
+	name = gt.optional(gt.string()),
 	title = gt.optional(gt.string()),
 	folderName = gt.optional(gt.string()),
 	placeId = gt.optional(gt.string()),
@@ -66,7 +71,7 @@ const Place = gt.build(gt.table {
 const PlaceMixin = gt.build(gt.table {
 	transpile = gt.optional(gt.boolean()),
 	folderName = gt.optional(gt.string()),
-	mapping = Mapping,
+	mapping = Mapping:type(),
 })
 
 const LuauConfig = gt.build(gt.table {
@@ -78,13 +83,15 @@ const LuauConfig = gt.build(gt.table {
 })
 
 export type RojoPath = typeof(RojoPath:type())
-export type RojoInstance = typeof(RojoInstance:type())
+export type RojoInstance = typeof(RojoInstance:type()) & { [Instance]: RojoInstance }
 export type RojoProject = typeof(RojoProject:type())
 export type MappingSegment = typeof(MappingSegment:type())
 export type Mapping = typeof(Mapping:type())
 export type Globals = typeof(Globals:type())
 export type Profile = typeof(Profile:type())
 export type Casing = typeof(Casing:type())
+export type Step = typeof(Step:type())
+export type Steps = typeof(Steps:type())
 export type Workspace = typeof(Workspace:type())
 export type Place = typeof(Place:type())
 export type PlaceMixin = typeof(PlaceMixin:type())

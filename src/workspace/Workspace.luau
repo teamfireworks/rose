@@ -21,14 +21,14 @@ type WorkspaceData = {
 	profiles: index<configuration.Workspace, "profiles">,
 
 	members: { WorkspaceMember },
-	dirToMembers: { [string]: WorkspaceMember },
+	nameToMembers: { [string]: WorkspaceMember },
 }
 
 export type WorkspaceMember = {
+	name: string,
 	place: configuration.Place,
 	placeMixin: configuration.PlaceMixin,
 
-	dirName: string,
 	dirPath: path.Pathlike,
 	configPath: path.Pathlike,
 }
@@ -50,10 +50,10 @@ const function tryResolveMember(dirPath: path.Pathlike): result.Result<Workspace
 	if config.place and config.placeMixin then result.fail(`rose.place and rose.placeMixin is mutually exclusive`) end
 
 	const member: WorkspaceMember = {
+		name = config.place and config.place.name or path.basename(dirPath) :: string,
 		place = config.place :: configuration.Place,
 		placeMixin = config.placeMixin :: configuration.PlaceMixin,
 
-		dirName = path.basename(dirPath) :: string,
 		dirPath = dirPath,
 		configPath = configPath,
 	}
@@ -62,20 +62,20 @@ const function tryResolveMember(dirPath: path.Pathlike): result.Result<Workspace
 end
 
 function Workspace.fromConfig(workspaceConfig: configuration.Workspace): result.Result<Workspace>
-	const paths = workspaceConfig.paths or {} :: never
+	const workspacePaths = workspaceConfig.paths or {} :: never
 
 	const self: WorkspaceData = {
-		buildDir = paths.buildDir or ".build",
-		buildProject = paths.buildProject or "default.project.json",
-		sourcemapProject = paths.sourcemapProject or "sourcemap.project.json",
-		sourcemap = paths.sourcemap or "sourcemap.json",
+		buildDir = workspacePaths.buildDir or ".rose/build",
+		buildProject = workspacePaths.buildProject or "default.project.json",
+		sourcemapProject = workspacePaths.sourcemapProject or "sourcemap.project.json",
+		sourcemap = workspacePaths.sourcemap or "sourcemap.json",
 
 		name = workspaceConfig.name,
 		build = workspaceConfig.build,
 		profiles = workspaceConfig.profiles,
 
 		members = {},
-		dirToMembers = {},
+		nameToMembers = {},
 	}
 
 	for _, pattern in workspaceConfig.members do
@@ -83,10 +83,10 @@ function Workspace.fromConfig(workspaceConfig: configuration.Workspace): result.
 			const memberResult = tryResolveMember(dirPath)
 			if memberResult.success then
 				const member = memberResult.value
-				if self.dirToMembers[member.dirName] then
+				if self.nameToMembers[member.name] then
 					return result.fail(`conflicting dir name {string.format("%q", path.basename(dirPath) :: string)}`)
 				end
-				self.dirToMembers[member.dirName] = member
+				self.nameToMembers[member.name] = member
 				table.insert(self.members, memberResult.value)
 			end
 		end
@@ -102,31 +102,31 @@ function Workspace.resolveDependencies(self: Workspace, member: WorkspaceMember)
 		local place = current.place
 		if not place then return resolved end
 
-		if visiting[current.dirName] then
-			local cycleStart = table.find(stack, current.dirName) or 1
+		if visiting[current.name] then
+			local cycleStart = table.find(stack, current.name) or 1
 			local cycle = table.move(stack, cycleStart, #stack, 1, {})
-			table.insert(cycle, current.dirName)
+			table.insert(cycle, current.name)
 
 			error(`place has cyclic dependency: {table.concat(cycle, " -> ")}`)
 		end
 
-		if resolvedSet[current.dirName] then return resolved end
+		if resolvedSet[current.name] then return resolved end
 
-		visiting[current.dirName] = true
-		table.insert(stack, current.dirName)
+		visiting[current.name] = true
+		table.insert(stack, current.name)
 
 		for _, dependencyName in place.dependencies or {} do
-			local dependency = self.dirToMembers[dependencyName]
-				or error(`place {current.dirName} has unknown dependency named {dependencyName}`)
+			local dependency = self.nameToMembers[dependencyName]
+				or error(`place {current.name} has unknown dependency named {dependencyName}`)
 			visit(dependency, stack)
 
-			if not resolvedSet[dependency.dirName] then
-				resolvedSet[dependency.dirName] = true
+			if not resolvedSet[dependency.name] then
+				resolvedSet[dependency.name] = true
 				table.insert(resolved, dependency)
 			end
 		end
 
-		visiting[current.dirName] = nil
+		visiting[current.name] = nil
 		table.remove(stack)
 
 		return resolved
@@ -137,7 +137,7 @@ end
 
 function Workspace.resolveMemberFromPath(self: Workspace, filepath: path.Pathlike): WorkspaceMember?
 	local firstPart = path.parse(filepath).parts[1]
-	return self.dirToMembers[firstPart]
+	return self.nameToMembers[firstPart]
 end
 
 return table.freeze(Workspace)
