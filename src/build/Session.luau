@@ -84,7 +84,8 @@ function Session.getRojoProject(self: Session, kind: "build" | "sourcemap")
 		end
 
 		if member.placeMixin then
-			insertMapping(tree, member.placeMixin.mapping, member.name, self:getMemberBuildDir(member))
+			const mixinDir = kind == "build" and self:getMemberBuildDir(member) or member.dirPath
+			insertMapping(tree, member.placeMixin.mapping, member.name, mixinDir)
 		end
 	end
 
