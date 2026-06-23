@@ -47,7 +47,7 @@ const function tryResolveMember(dirPath: path.Pathlike): result.Result<Workspace
 	const config = configResult.value.rose
 	if not config then return result.fail(`missing rose field in {CONFIG_FILE_NAME}`) end
 	if config.workspace then return result.fail(`expected rose.place or rose.placeMixin, got rose.workspace`) end
-	if config.place and config.placeMixin then result.fail(`rose.place and rose.placeMixin is mutually exclusive`) end
+	if config.place and config.placeMixin then return result.fail(`rose.place and rose.placeMixin is mutually exclusive`) end
 
 	const member: WorkspaceMember = {
 		name = config.place and config.place.name or path.basename(dirPath) :: string,
@@ -135,9 +135,19 @@ function Workspace.resolveDependencies(self: Workspace, member: WorkspaceMember)
 	return result.pcall(visit, member, {} :: { string })
 end
 
+local function normalizeSlashes(str: string): string
+	return (str:gsub("\\", "/"))
+end
+
 function Workspace.resolveMemberFromPath(self: Workspace, filepath: path.Pathlike): WorkspaceMember?
-	local firstPart = path.parse(filepath).parts[1]
-	return self.nameToMembers[firstPart]
+	const absoluteFilepath = normalizeSlashes(path.format(filepath))
+	for _, member in self.members do
+		const absoluteMemberDir = normalizeSlashes(path.format(path.resolve(member.dirPath)))
+		if string.find(absoluteFilepath, absoluteMemberDir, 1, true) == 1 then
+			return member
+		end
+	end
+	return nil
 end
 
 return table.freeze(Workspace)

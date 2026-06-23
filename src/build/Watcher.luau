@@ -1,39 +1,47 @@
--- I present to the ROSS community the worst invention of Welcome To Hell
--- A Rojo-sourcemap based weird ass watcher
+local luteFs = require "@lute/fs"
+local path = require "@std/path"
 
-local fs = require "@std/fs"
+local function normalizeSlashes(str: string): string
+	return (str:gsub("\\", "/"))
+end
 
---[=[
-    Watches the project's sourcemap.json for files added and removed. Also
-    watches all listed files in the sourcemap for file changes.
+export type SourcemapIndices = { [string]: string }
 
-    Although limited, this is significantly more reliable than Lute's `fs.watch`
-    and more performant than long polling.
-]=]
-local function watchSourcemap()
-	local oldIndices: types.SourcemapIndices = {}
+export type WatcherState = {
+	changes: { [string]: "added" | "changed" | "removed" },
+	dirWatchers: { [string]: luteFs.WatchHandle },
+	onChanged: (newIndices: SourcemapIndices) -> (),
+}
+
+local function watchSourcemap(): WatcherState
+	local oldIndices: SourcemapIndices = {}
+	-- shared upvalue so dir-watch callbacks always see the latest indices
+	local currentIndices: SourcemapIndices = {}
 	local changes: { [string]: "added" | "changed" | "removed" } = {}
-	local watchers: { [string]: types.Watcher } = {}
+	local dirWatchers: { [string]: luteFs.WatchHandle } = {}
 
-	local function onChanged(newIndices: types.SourcemapIndices)
+	local function onChanged(newIndices: SourcemapIndices)
+		currentIndices = newIndices
+
 		for absolutePath in newIndices do
-			if not oldIndices[absolutePath] and not changes[absolutePath] then
+			if not oldIndices[absolutePath] then
 				changes[absolutePath] = "added"
 
-				local watcher = fs.watch(absolutePath)
-				watchers[absolutePath] = watcher
+				local dirPath = path.format(path.dirname(absolutePath))
+				if not dirWatchers[dirPath] then
+					dirWatchers[dirPath] = luteFs.watch(dirPath, function(filename, event)
+						local changedPath = normalizeSlashes(dirPath .. "/" .. filename)
+						if event.change and currentIndices[changedPath] then
+							changes[changedPath] = "changed"
+						end
+					end)
+				end
 			end
 		end
 
-		for absolutePath, hash in oldIndices do
+		for absolutePath in oldIndices do
 			if not newIndices[absolutePath] and not changes[absolutePath] then
 				changes[absolutePath] = "removed"
-
-				local watcher = watchers[absolutePath]
-				if watcher then
-					watcher:close()
-					watchers[absolutePath] = nil
-				end
 			end
 		end
 
@@ -42,9 +50,9 @@ local function watchSourcemap()
 
 	return {
 		changes = changes,
-		watchers = watchers,
+		dirWatchers = dirWatchers,
 		onChanged = onChanged,
 	}
 end
 
-return useSourcemapWatcher
+return watchSourcemap

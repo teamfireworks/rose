@@ -1,6 +1,7 @@
 const result = require "@rose/batteries/result"
 const richterm = require "@rose/batteries/richterm"
 const insertMapping = require "@rose/build/insertMapping"
+const sourcemapIndices = require "@rose/build/sourcemapIndices"
 const configuration = require "@rose/configuration"
 const copyInto = require "@rose/copyInto"
 const deepClone = require "@rose/deepClone"
@@ -27,6 +28,7 @@ export type Session = setmetatable<{
 	initThreads: { thread },
 
 	buildDir: path.Path,
+	currentSourcemapIndices: sourcemapIndices.SourcemapIndices,
 }, typeof(Session)>
 
 function Session.fromMember(
@@ -53,6 +55,7 @@ function Session.fromMember(
 		initThreads = {},
 
 		buildDir = path.join(workspace.buildDir, uuid()),
+		currentSourcemapIndices = {},
 	}, Session)
 
 	return result.ok(self)
@@ -100,22 +103,61 @@ function Session.getGlobals(self: Session): configuration.Globals
 	return globals
 end
 
+function Session.getDevGlobals(self: Session): configuration.Globals
+	const globals = self:getGlobals()
+
+	globals.__DEV__ = { value = true }
+	globals.ROSE_DIR_NAME = { value = self.member.name }
+	globals.ROSE_PLACE_FOLDER = { value = self.memberPlace.folderName }
+	globals.ROSE_PLACE_TITLE = { value = self.memberPlace.title }
+	if self.memberPlace.subtitle then
+		globals.ROSE_PLACE_SUBTITLE = { value = self.memberPlace.subtitle }
+	end
+
+	return globals
+end
+
+local function substituteStepTemplates(stepString: string, member: Workspace.WorkspaceMember): string
+	return (stepString:gsub("{ROSE_DIR_PATH}", path.format(member.dirPath)))
+end
+
 function Session.preInit(self: Session)
 	const preInit = self.workspace.build.preInit
 	if not preInit then return end
 
 	for _, step in preInit do
 		if step.run then
-			print(richterm.black(step.run))
-			process.system(step.run, { stdio = "inherit" })
+			const command = substituteStepTemplates(step.run, self.member)
+			process.system(command, { stdio = "inherit" })
 		elseif step.spawn then
-			print(richterm.black(step.spawn))
+			const command = substituteStepTemplates(step.spawn, self.member)
+			print(richterm.black(command))
 			table.insert(
 				self.initThreads,
-				task.spawn(process.system, step.spawn, { stdio = "inherit" } :: process.ProcessSystemOptions)
+				task.spawn(process.system, command, { stdio = "inherit" } :: process.ProcessSystemOptions)
 			)
 		end
 	end
+end
+
+function Session.shouldTranspile(self: Session, filepath: path.Pathlike): boolean
+	const member = self.workspace:resolveMemberFromPath(filepath)
+	if not member then return false end
+	if member.place then return true end
+	if member.placeMixin then return member.placeMixin.transpile == true end
+	return false
+end
+
+function Session.getOutputFilepath(self: Session, sourceFilepath: path.Pathlike): path.Path
+	const member = self.workspace:resolveMemberFromPath(sourceFilepath) :: Workspace.WorkspaceMember
+	const memberBuildDir = self:getMemberBuildDir(member)
+	const absoluteMemberDir = path.resolve(member.dirPath)
+	const relativeToMember = path.relative(absoluteMemberDir, path.resolve(sourceFilepath))
+	return path.join(memberBuildDir, relativeToMember)
+end
+
+function Session.refreshSourcemapIndices(self: Session)
+	self.currentSourcemapIndices = sourcemapIndices(self.workspace.sourcemap)
 end
 
 function Session.init(self: Session)

@@ -5,10 +5,11 @@ const args = { ... }
 table.remove(args, 1)
 
 const runResult = runCommands(args, {
-	dev = require "@self/cli/commands/dev",
-	ls = require "@self/cli/commands/ls",
-	ripple = require "@self/cli/commands/ripple",
-	ropen = require "@self/cli/commands/ropen",
+	dev = require "@rose/cli/commands/dev",
+	help = require "@rose/cli/commands/help",
+	ls = require "@rose/cli/commands/ls",
+	ripple = require "@rose/cli/commands/ripple",
+	ropen = require "@rose/cli/commands/ropen",
 })
 
 if runResult.success then

@@ -12,8 +12,7 @@ const RojoInstanceTable = {
 const RojoInstance = gt.build(gt.table(RojoInstanceTable))
 RojoInstance[gt.string()] = Instance
 
--- Note: name and tree is required, it's optional here so it can be used for
--- workspace configuration
+-- name and tree are optional here so the type works for both project files and workspace config
 const RojoProject = gt.build(gt.table {
 	name = gt.optional(gt.string()),
 	tree = gt.optional(RojoInstance:type() :: RojoInstance),
@@ -62,6 +61,7 @@ const Workspace = gt.build(gt.table {
 const Place = gt.build(gt.table {
 	name = gt.optional(gt.string()),
 	title = gt.optional(gt.string()),
+	subtitle = gt.optional(gt.string()),
 	folderName = gt.optional(gt.string()),
 	placeId = gt.optional(gt.string()),
 	globals = gt.optional(Globals:type()),

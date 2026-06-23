@@ -25,13 +25,13 @@ function Command.new(options: { help: string }): Command
 end
 
 function Command.run(self: Command, args: { string }): result.Result<nil>
+	if table.find(args, "--help") or table.find(args, "-h") then
+		print(self.help)
+		self.args:help()
+		return result.ok(nil)
+	end
 	const parseResult = result.pcall(cli.parse :: (cli.Parser, { string }) -> nil, self.args, args)
 	if parseResult.success then
-		if self.args:has "help" then
-			print(self.help)
-			self.args:help()
-			return result.ok(nil)
-		end
 		return result.pcall(self.onRun :: (cli.Parser) -> nil, self.args)
 	end
 	return parseResult
