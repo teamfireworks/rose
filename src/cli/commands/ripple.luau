@@ -19,8 +19,12 @@ const threads: { thread } = {}
 const BAR_WIDTH = 30
 
 local ESC = "\x1b["
-local function clearLine(): string return `{ESC}2K\r` end
-local function cursorUp(n: number): string return `{ESC}{n}A` end
+local function clearLine(): string
+	return `{ESC}2K\r`
+end
+local function cursorUp(n: number): string
+	return `{ESC}{n}A`
+end
 
 local function barColor(fraction: number): (text: string) -> string
 	if fraction <= 0.25 then
@@ -56,11 +60,10 @@ local function renderBar(done: number, total: number, currentName: string, curre
 	end
 end
 
-
 const function createRunOptions(member: Workspace.WorkspaceMember): process.ProcessSystemOptions
 	return {
 		cwd = path.format(member.dirPath),
-		stdio = if (ripple.args:has "nostdio" or ripple.args:has "progress") then "none" else "inherit",
+		stdio = if ripple.args:has "nostdio" or ripple.args:has "progress" then "none" else "inherit",
 		env = {
 			ROSE_MEMBER_NAME = member.name,
 			ROSE_DIR_PATH = path.format(member.dirPath),
@@ -75,9 +78,7 @@ const function runMemberCommand(command: string, member: Workspace.WorkspaceMemb
 		command = string.gsub(command, "{" .. key .. "}", value)
 	end
 
-	if not ripple.args:has "progress" then
-		print(`{member.name}: {richterm.dim(command)}`)
-	end
+	if not ripple.args:has "progress" then print(`{member.name}: {richterm.dim(command)}`) end
 
 	const runResult = process.system(command, options)
 	if runResult.ok or ripple.args:has "nofail" then return end

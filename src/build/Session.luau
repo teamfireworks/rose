@@ -101,19 +101,18 @@ function Session.getGlobals(self: Session): configuration.Globals
 			globals[key] = value
 		end
 	end
-	return globals
-end
-
-function Session.getDevGlobals(self: Session): configuration.Globals
-	const globals = self:getGlobals()
 
 	globals.__DEV__ = { value = true }
 	globals.ROSE_DIR_NAME = { value = self.member.name }
 	globals.ROSE_PLACE_FOLDER = { value = self.memberPlace.folderName }
 	globals.ROSE_PLACE_TITLE = { value = self.memberPlace.title }
-	if self.memberPlace.subtitle then
-		globals.ROSE_PLACE_SUBTITLE = { value = self.memberPlace.subtitle }
-	end
+	globals.ROSE_PLACE_SUBTITLE = { value = self.memberPlace.subtitle }
+
+	return globals
+end
+
+function Session.getDevGlobals(self: Session): configuration.Globals
+	const globals = self:getGlobals()
 
 	return globals
 end

@@ -15,7 +15,6 @@ export type WatcherState = {
 
 local function watchSourcemap(): WatcherState
 	local oldIndices: SourcemapIndices = {}
-	-- shared upvalue so dir-watch callbacks always see the latest indices
 	local currentIndices: SourcemapIndices = {}
 	local changes: { [string]: "added" | "changed" | "removed" } = {}
 	local dirWatchers: { [string]: luteFs.WatchHandle } = {}
@@ -31,18 +30,14 @@ local function watchSourcemap(): WatcherState
 				if not dirWatchers[dirPath] then
 					dirWatchers[dirPath] = luteFs.watch(dirPath, function(filename, event)
 						local changedPath = normalizeSlashes(dirPath .. "/" .. filename)
-						if event.change and currentIndices[changedPath] then
-							changes[changedPath] = "changed"
-						end
+						if event.change and currentIndices[changedPath] then changes[changedPath] = "changed" end
 					end)
 				end
 			end
 		end
 
 		for absolutePath in oldIndices do
-			if not newIndices[absolutePath] and not changes[absolutePath] then
-				changes[absolutePath] = "removed"
-			end
+			if not newIndices[absolutePath] and not changes[absolutePath] then changes[absolutePath] = "removed" end
 		end
 
 		oldIndices = newIndices
