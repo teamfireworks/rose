@@ -1,0 +1,92 @@
+name: Release CLI
+
+on:
+    push:
+        tags:
+            - "v*.*.*"
+    workflow_dispatch:
+        inputs:
+            tag:
+                description: "Tag to release (e.g. v1.0.0)"
+                required: true
+
+permissions:
+    contents: write
+
+jobs:
+    build:
+        name: Build (${{ matrix.artifact-name }})]
+        runs-on: ${{ matrix.target }}
+
+        strategy:
+            fail-fast: false
+            matrix:
+                # I be cooking up sm bullshit
+                include:
+                    - artifact-name: rose-windows-x86_64
+                      target: windows-latest
+                      binary: rose.exe
+
+                    - artifact-name: rose-linux-x86_64
+                      target: ubuntu-latest
+                      binary: rose
+
+                    - artifact-name: rose-linux-aarch64
+                      target: ubuntu-24.04-arm
+                      binary: rose
+
+                    - artifact-name: rose-macos-x86_64
+                      target: macos-26-intel
+                      binary: rose
+
+                    - artifact-name: rose-macos-aarch64
+                      target: macos-latest
+                      binary: rose
+
+        steps:
+            - name: Checkout
+              uses: actions/checkout@v4
+
+            - name: Install Rokit
+              uses: CompeyDev/setup-rokit@v0.1.2
+
+            - name: Bundle code
+              run: darklua process ./src/main.luau dist/main.luau
+
+            - name: Build binary
+              run: lute build --output ${{ matrix.binary }} ./dist/main.luau
+
+            - name: Create archive (Windows)
+              if: matrix.target == 'windows-latest'
+              run: Compress-Archive -Path ${{ matrix.binary }} -DestinationPath ${{ matrix.artifact-name }}.zip
+
+            - name: Create archive (Unix)
+              if: matrix.target != 'windows-latest'
+              run: zip ${{ matrix.artifact-name }}.zip ${{ matrix.binary }}
+
+            - name: Upload artifact
+              uses: actions/upload-artifact@v4
+              with:
+                  name: ${{ matrix.artifact-name }}
+                  path: ${{ matrix.artifact-name }}.zip
+
+    release:
+        name: Create Release
+        needs: build
+        runs-on: ubuntu-latest
+
+        steps:
+            - name: Download all artifacts
+              uses: actions/download-artifact@v4
+
+            - name: Collect release files
+              run: |
+                  mkdir release
+                  find . -name "*.zip" -exec cp {} release/ \;
+
+            - name: Create draft release
+              uses: softprops/action-gh-release@v2
+              with:
+                  tag_name: ${{ github.event.inputs.tag || github.ref_name }}
+                  draft: true
+                  files: release/*.zip

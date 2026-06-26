@@ -1,0 +1,11 @@
+{
+	"bundle": {
+		"excludes": ["@std/**", "@lute/**"],
+		"require_mode": {
+			"name": "luau",
+			"aliases": {
+				"@rose": "./src"
+			}
+		}
+	}
+}
