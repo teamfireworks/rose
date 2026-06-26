@@ -1,21 +1,11 @@
 const luau = require "@std/luau"
 const path = require "@std/path"
 const query = require "@std/syntax/query"
-const richterm = require "@rose/batteries/richterm"
 const syntax = require "@std/syntax"
 const utils = require "@std/syntax/utils"
+const types = require "@rose/transpilation/types"
 
-export type Globals = { [string]: { value: unknown? } }
-
-export type TransformerContext = {
-	tree: syntax.ParseResult,
-	filepath: string,
-	source: string,
-	globals: Globals,
-	sourcemapIndices: { [string]: string },
-}
-
-local function resolveRequires(context: TransformerContext)
+const resolveRequires: types.Transformer = function(context: types.TransformerContext)
 	return query
 		.findAllFromRoot(context.tree, utils.isExprCall)
 		:filter(function(call: syntax.AstExprCall): boolean
@@ -29,16 +19,17 @@ local function resolveRequires(context: TransformerContext)
 				pcall(luau.resolveModule, pathArgument.node.token.text, context.filepath)
 
 			if not resolveSuccess then
-				-- "ambiguous configuration file" happens when rose is cloned inside the workspace; skip silently
-				if not (resolvedOrError :: string):find("ambiguous configuration file") then
-					print(richterm.yellow(`! Failed to resolve require {pathArgument.node.token.text}:`))
-					print(richterm.yellow(`  {resolvedOrError}`))
-					print(richterm.yellow(`  in {path.format(context.filepath)}`))
-				end
+				context.log:atWarn(
+					`Failed to resolve require path {pathArgument.node.token.text}`,
+					`In {path.format(context.filepath)}:{call.location.beginLine}:`,
+					tostring(resolvedOrError)
+				)
+
 				return nil
 			end
 
-			const requirePath = context.sourcemapIndices[path.format(resolvedOrError)]
+			const requireRealpath = "/" .. table.concat(path.resolve(resolvedOrError).parts, "/")
+			const requirePath = context.sourcemapIndices[requireRealpath]
 			return if requirePath then `require {string.format("%q", requirePath)}` else nil
 		end)
 end

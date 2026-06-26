@@ -6,7 +6,6 @@ CommandStore.root = {
 	help = "Next-generation Roblox monorepository toolchain",
 	subcommands = {
 		dev = require "@rose/cli/commands/dev",
-		dev_new = require "@rose/cli/commands/dev_new",
 		help = require "@rose/cli/commands/help",
 		ls = require "@rose/cli/commands/ls",
 		ripple = require "@rose/cli/commands/ripple",

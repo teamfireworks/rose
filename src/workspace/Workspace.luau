@@ -17,8 +17,11 @@ type WorkspaceData = {
 	sourcemap: path.Pathlike,
 
 	name: string,
-	build: index<configuration.Workspace, "build">,
 	profiles: index<configuration.Workspace, "profiles">,
+	build: index<configuration.Workspace, "build">,
+	buildScripts: {
+		preInit: string?,
+	},
 
 	members: { WorkspaceMember },
 	nameToMembers: { [string]: WorkspaceMember },
@@ -47,7 +50,9 @@ const function tryResolveMember(dirPath: path.Pathlike): result.Result<Workspace
 	const config = configResult.value.rose
 	if not config then return result.fail(`missing rose field in {CONFIG_FILE_NAME}`) end
 	if config.workspace then return result.fail(`expected rose.place or rose.placeMixin, got rose.workspace`) end
-	if config.place and config.placeMixin then return result.fail(`rose.place and rose.placeMixin is mutually exclusive`) end
+	if config.place and config.placeMixin then
+		return result.fail(`rose.place and rose.placeMixin is mutually exclusive`)
+	end
 
 	const member: WorkspaceMember = {
 		name = config.place and config.place.name or path.basename(dirPath) :: string,
@@ -71,8 +76,9 @@ function Workspace.fromConfig(workspaceConfig: configuration.Workspace): result.
 		sourcemap = workspacePaths.sourcemap or "sourcemap.json",
 
 		name = workspaceConfig.name,
-		build = workspaceConfig.build,
 		profiles = workspaceConfig.profiles,
+		build = workspaceConfig.build,
+		buildScripts = workspaceConfig.build.scripts or {},
 
 		members = {},
 		nameToMembers = {},
@@ -143,9 +149,7 @@ function Workspace.resolveMemberFromPath(self: Workspace, filepath: path.Pathlik
 	const absoluteFilepath = normalizeSlashes(path.format(filepath))
 	for _, member in self.members do
 		const absoluteMemberDir = normalizeSlashes(path.format(path.resolve(member.dirPath)))
-		if string.find(absoluteFilepath, absoluteMemberDir, 1, true) == 1 then
-			return member
-		end
+		if string.find(absoluteFilepath, absoluteMemberDir, 1, true) == 1 then return member end
 	end
 	return nil
 end

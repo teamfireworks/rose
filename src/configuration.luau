@@ -10,7 +10,7 @@ const RojoInstanceTable = {
 }
 
 const RojoInstance = gt.build(gt.table(RojoInstanceTable))
-RojoInstance[gt.string()] = Instance
+RojoInstanceTable[gt.string()] = RojoInstance:type()
 
 -- name and tree are optional here so the type works for both project files and workspace config
 const RojoProject = gt.build(gt.table {
@@ -34,9 +34,6 @@ const Casing = gt.build(
 	gt.union(gt.literal "camel", gt.literal "snake", gt.literal "pascal", gt.literal "kebab") :: "camel" | "snake" | "pascal" | "kebab"
 )
 
-const Step = gt.build(gt.table { run = gt.optional(gt.string()), spawn = gt.optional(gt.string()) })
-const Steps = gt.build(gt.array(Step:type()))
-
 const Workspace = gt.build(gt.table {
 	name = gt.string(),
 	members = gt.array(gt.string()),
@@ -48,7 +45,13 @@ const Workspace = gt.build(gt.table {
 	}),
 	build = gt.table {
 		globals = gt.optional(Globals:type()),
-		preInit = gt.optional(Steps:type()),
+		scripts = gt.optional(gt.table {
+			preInit = gt.optional(gt.string()),
+		}),
+		idl = gt.optional {
+			program = gt.string(),
+			filename = gt.string(),
+		},
 		place = gt.table {
 			folderCasing = gt.optional(Casing),
 			baseProject = gt.optional(RojoProject:type()),
@@ -83,15 +86,13 @@ const LuauConfig = gt.build(gt.table {
 })
 
 export type RojoPath = typeof(RojoPath:type())
-export type RojoInstance = typeof(RojoInstance:type()) & { [Instance]: RojoInstance }
+export type RojoInstance = typeof(RojoInstance:type()) & { [string]: RojoInstance }
 export type RojoProject = typeof(RojoProject:type())
 export type MappingSegment = typeof(MappingSegment:type())
 export type Mapping = typeof(Mapping:type())
 export type Globals = typeof(Globals:type())
 export type Profile = typeof(Profile:type())
 export type Casing = typeof(Casing:type())
-export type Step = typeof(Step:type())
-export type Steps = typeof(Steps:type())
 export type Workspace = typeof(Workspace:type())
 export type Place = typeof(Place:type())
 export type PlaceMixin = typeof(PlaceMixin:type())

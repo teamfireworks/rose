@@ -1,21 +1,10 @@
--- Adapted from https://github.com/checkraisefold/warmluau/blob/8299341613adfef565a19b8ee7da25c1c66ccb10/src/ingredients/resolve_require/init.luau
-
-const fs = require "@std/fs"
-const path = require "@std/path"
-
-export type SourcemapIndices = { [string]: string }
-
-type SourcemapNode = {
-	name: string,
-	filePaths: { string }?,
-	children: { SourcemapNode }?,
-}
+const types = require "@rose/sourcemap/types"
 
 -- @std/json's deserializeObject uses `cursor < #src` instead of `cursor <= #src`,
 -- so when skipWhitespace hits end-of-string it sets cursor to nil, and the next
 -- string.find call with a nil position silently wraps back to 1 — corrupting the
 -- parse state mid-file. We parse the sourcemap ourselves to avoid this.
-local function parseSourcemapJson(source: string): SourcemapNode
+local function deserializeSourcemap(source: string): types.Node
 	local cursor = 1
 
 	local function skipWhitespace()
@@ -25,7 +14,12 @@ local function parseSourcemapJson(source: string): SourcemapNode
 	local function expect(char: string)
 		skipWhitespace()
 		if string.sub(source, cursor, cursor) ~= char then
-			error(`expected {string.format("%q", char)} at position {cursor}, got {string.format("%q", string.sub(source, cursor, cursor))}`)
+			error(
+				`expected {string.format("%q", char)} at position {cursor}, got {string.format(
+					"%q",
+					string.sub(source, cursor, cursor)
+				)}`
+			)
 		end
 		cursor += 1
 	end
@@ -47,7 +41,7 @@ local function parseSourcemapJson(source: string): SourcemapNode
 				cursor += 1
 			end
 		end
-		error("unterminated string")
+		error "unterminated string"
 	end
 
 	local function parseArray(): { unknown }
@@ -121,54 +115,14 @@ local function parseSourcemapJson(source: string): SourcemapNode
 			return nil
 		else
 			const numStart = cursor
-			cursor = string.find(source, "[^%d%.%+%-%eE]", cursor) or (#source + 1)
+			-- GOD KNOWS HWTA THIS WAS MEANT TO BE
+			-- TODO(bwa): can you make this string pattern valid
+			cursor = string.find(source, "[^%d%.%+%-%eE]" :: any, cursor) or (#source + 1)
 			return tonumber(string.sub(source, numStart, cursor - 1))
 		end
 	end
 
-	return parseValue() :: SourcemapNode
+	return parseValue() :: types.Node
 end
 
-local function readSourcemapIndices(sourcemapPath: path.Pathlike): SourcemapIndices
-	if not fs.exists(sourcemapPath) then return {} end
-	const sourcemap = parseSourcemapJson(fs.readFileToString(sourcemapPath))
-	const indices: SourcemapIndices = {}
-
-	const topLevelNodes = sourcemap.children
-	if not topLevelNodes then return indices end
-
-	local nodeCount = #topLevelNodes
-	for index = 1, nodeCount do
-		local serviceNode = topLevelNodes[index]
-		serviceNode.name = `@game/{serviceNode.name}`
-	end
-
-	local cursor = 0
-	while cursor < nodeCount do
-		cursor += 1
-		const node = topLevelNodes[cursor]
-		const nodeName = node.name
-
-		const filePaths = node.filePaths
-		if filePaths then
-			for _, filePath in filePaths do
-				indices[path.format(filePath)] = nodeName
-			end
-		end
-
-		const children = node.children
-		if children then
-			const childrenCount = #children
-			for childIndex = 1, childrenCount do
-				local child = children[childIndex]
-				child.name = `{nodeName}/{child.name}`
-			end
-			table.move(children, 1, childrenCount, nodeCount + 1, topLevelNodes)
-			nodeCount += childrenCount
-		end
-	end
-
-	return indices
-end
-
-return readSourcemapIndices
+return deserializeSourcemap

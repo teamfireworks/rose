@@ -1,16 +1,19 @@
 const result = require "@rose/batteries/result"
-const richterm = require "@rose/batteries/richterm"
 const insertMapping = require "@rose/build/insertMapping"
-const sourcemapIndices = require "@rose/build/sourcemapIndices"
 const configuration = require "@rose/configuration"
 const copyInto = require "@rose/copyInto"
 const deepClone = require "@rose/deepClone"
-const uuid = require "@rose/vendor/uuid"
 const Workspace = require "@rose/workspace/Workspace"
 const fs = require "@std/fs"
 const json = require "@std/json"
 const path = require "@std/path"
 const process = require "@std/process"
+const Watcher = require "@rose/sourcemap/Watcher"
+const Log = require "@rose/build/Log"
+const indexSourcemap = require "@rose/sourcemap/indexSourcemap"
+const transformers = require "@rose/transpilation/transformers"
+const transpile = require "@rose/transpilation/transpile"
+const syntax = require "@std/syntax"
 const task = require "@std/task"
 
 const Session = {}
@@ -24,11 +27,12 @@ export type Session = setmetatable<{
 	memberDependencies: { Workspace.WorkspaceMember },
 	rojoDependencies: { Workspace.WorkspaceMember },
 
-	profile: configuration.Profile?,
-	initThreads: { thread },
-
+	cwd: path.Path,
 	buildDir: path.Path,
-	currentSourcemapIndices: sourcemapIndices.SourcemapIndices,
+	profile: configuration.Profile?,
+
+	log: Log.Log,
+	watcher: Watcher.Watcher,
 }, typeof(Session)>
 
 function Session.fromMember(
@@ -43,7 +47,7 @@ function Session.fromMember(
 
 	profile = profile or if workspace.profiles then workspace.profiles.default else nil
 
-	const self: Session = setmetatable({
+	return result.ok<<Session>>(setmetatable({
 		workspace = workspace,
 
 		member = member,
@@ -51,19 +55,35 @@ function Session.fromMember(
 		memberDependencies = dependencies.value,
 		rojoDependencies = { member, table.unpack(dependencies.value) },
 
-		profile = profile or if workspace.profiles then workspace.profiles.default else nil,
-		initThreads = {},
+		cwd = process.cwd(),
+		buildDir = path.join(workspace.buildDir, member.name),
+		profile = nil :: configuration.Profile?,
 
-		buildDir = path.join(workspace.buildDir, uuid()),
-		currentSourcemapIndices = {},
-	}, Session)
-
-	return result.ok(self)
+		log = Log.new(),
+		watcher = Watcher.new(),
+	}, Session))
 end
+
+-- Paths
 
 function Session.getMemberBuildDir(self: Session, member: Workspace.WorkspaceMember)
 	return path.join(self.buildDir, member.name)
 end
+
+function Session.getOutputFilepath(self: Session, sourceFilepath: path.Pathlike): path.Path
+	const member = self.workspace:resolveMemberFromPath(sourceFilepath) :: Workspace.WorkspaceMember
+	const memberBuildDir = self:getMemberBuildDir(member)
+	const absoluteMemberDir = path.resolve(member.dirPath)
+	const relativeToMember = path.relative(absoluteMemberDir, path.resolve(sourceFilepath))
+	return path.join(memberBuildDir, relativeToMember)
+end
+
+function Session.getDisplayPath(self: Session, absolutePath: string): string
+	const relative = path.format(path.relative(self.cwd, absolutePath))
+	return if relative ~= "" then relative else absolutePath
+end
+
+-- Rojo
 
 function Session.getRojoProject(self: Session, kind: "build" | "sourcemap")
 	const project = deepClone(self.workspace.build.place.baseProject or {} :: never)
@@ -92,6 +112,8 @@ function Session.getRojoProject(self: Session, kind: "build" | "sourcemap")
 	return project
 end
 
+-- Transpilation
+
 function Session.getGlobals(self: Session): configuration.Globals
 	const globals = self.workspace.build.globals and table.clone(self.workspace.build.globals)
 		or {} :: configuration.Globals
@@ -102,42 +124,13 @@ function Session.getGlobals(self: Session): configuration.Globals
 		end
 	end
 
-	globals.__DEV__ = { value = true }
+	globals.__DEV__ = { value = false }
 	globals.ROSE_DIR_NAME = { value = self.member.name }
 	globals.ROSE_PLACE_FOLDER = { value = self.memberPlace.folderName }
 	globals.ROSE_PLACE_TITLE = { value = self.memberPlace.title }
 	globals.ROSE_PLACE_SUBTITLE = { value = self.memberPlace.subtitle }
 
 	return globals
-end
-
-function Session.getDevGlobals(self: Session): configuration.Globals
-	const globals = self:getGlobals()
-
-	return globals
-end
-
-local function substituteStepTemplates(stepString: string, member: Workspace.WorkspaceMember): string
-	return (stepString:gsub("{ROSE_DIR_PATH}", path.format(member.dirPath)))
-end
-
-function Session.preInit(self: Session)
-	const preInit = self.workspace.build.preInit
-	if not preInit then return end
-
-	for _, step in preInit do
-		if step.run then
-			const command = substituteStepTemplates(step.run, self.member)
-			process.system(command, { stdio = "inherit" })
-		elseif step.spawn then
-			const command = substituteStepTemplates(step.spawn, self.member)
-			print(richterm.black(command))
-			table.insert(
-				self.initThreads,
-				task.spawn(process.system, command, { stdio = "inherit" } :: process.ProcessSystemOptions)
-			)
-		end
-	end
 end
 
 function Session.shouldTranspile(self: Session, filepath: path.Pathlike): boolean
@@ -148,19 +141,71 @@ function Session.shouldTranspile(self: Session, filepath: path.Pathlike): boolea
 	return false
 end
 
-function Session.getOutputFilepath(self: Session, sourceFilepath: path.Pathlike): path.Path
-	const member = self.workspace:resolveMemberFromPath(sourceFilepath) :: Workspace.WorkspaceMember
-	const memberBuildDir = self:getMemberBuildDir(member)
-	const absoluteMemberDir = path.resolve(member.dirPath)
-	const relativeToMember = path.relative(absoluteMemberDir, path.resolve(sourceFilepath))
-	return path.join(memberBuildDir, relativeToMember)
+function Session.transpileFile(self: Session, absolutePath: string)
+	const outputFilepath = self:getOutputFilepath(absolutePath)
+
+	const outputDir = path.dirname(outputFilepath)
+	if not fs.exists(outputDir) then fs.createDirectory(outputDir, { makeParents = true }) end
+
+	const source = fs.readFileToString(absolutePath)
+	const outputSource = transpile(transformers.BUILD_TRANSFORMERS, {
+		tree = syntax.parse(source),
+		source = source,
+		filepath = absolutePath,
+		log = self.log,
+		globals = self:getGlobals(),
+		sourcemapIndices = self.watcher.currentIndices,
+	})
+
+	fs.writeStringToFile(outputFilepath, outputSource)
 end
 
-function Session.refreshSourcemapIndices(self: Session)
-	self.currentSourcemapIndices = sourcemapIndices(self.workspace.sourcemap)
+-- Processor
+
+function Session.processChanges(self: Session)
+	for absolutePath, action in self.watcher.changes do
+		if (action == "removed" or fs.exists(absolutePath)) and self:shouldTranspile(absolutePath) then
+			if action == "added" then
+				self:transpileFile(absolutePath)
+				self.log:atAdd(self:getDisplayPath(absolutePath))
+			elseif action == "changed" then
+				self:transpileFile(absolutePath)
+				self.log:atChange(self:getDisplayPath(absolutePath))
+			elseif action == "removed" then
+				fs.remove(absolutePath)
+				self.log:atRemove(self:getDisplayPath(absolutePath))
+			end
+		end
+	end
+
+	table.clear(self.watcher.changes)
+end
+
+function Session.onSourcemapChanged(self: Session)
+	self.watcher:onChanged(indexSourcemap(fs.readFileToString(self.workspace.sourcemap)))
+end
+
+function Session.watchIdl(self: Session)
+	const idl = self.workspace.build.idl
+	if not idl then return end
+
+	for _, member in self.rojoDependencies do
+		const filepath = path.format(path.join(member.dirPath, idl.filename))
+		if fs.exists(filepath) then
+			task.spawn(process.run, {
+				idl.program,
+				path.format(path.join(member.dirPath, idl.filename)),
+				"--yes",
+				"--watch",
+			}, nil :: process.ProcessRunOptions?)
+		end
+	end
 end
 
 function Session.init(self: Session)
+	const preInit = self.workspace.buildScripts.preInit
+	if preInit then process.system(preInit, { stdio = "inherit" }) end
+
 	if fs.exists(self.buildDir) then
 		for _, file in fs.listDirectory(self.buildDir) do
 			local filepath = path.join(self.buildDir, file.name)
@@ -183,6 +228,37 @@ function Session.init(self: Session)
 
 	const sourcemapProject = json.serialize(self:getRojoProject "sourcemap" :: json.Object)
 	fs.writeStringToFile(self.workspace.sourcemapProject, sourcemapProject)
+
+	const idl = self.workspace.build.idl
+	if idl then
+		for _, member in self.rojoDependencies do
+			const filepath = path.format(path.join(member.dirPath, idl.filename))
+			if fs.exists(filepath) then
+				process.run({
+					idl.program,
+					path.format(path.join(member.dirPath, idl.filename)),
+					"--yes",
+				}, { stdio = "inherit" })
+			end
+		end
+	end
+
+	process.run({
+		"rojo",
+		"sourcemap",
+		"--absolute",
+		"--include-non-scripts",
+		"--output",
+		path.format(self.workspace.sourcemap),
+		path.format(self.workspace.sourcemapProject),
+	}, { stdio = "inherit" })
+
+	self:onSourcemapChanged()
+	self:processChanges()
+end
+
+function Session.destroy(self: Session)
+	self.watcher:destroy()
 end
 
 return table.freeze(Session)

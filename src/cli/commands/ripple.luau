@@ -26,7 +26,7 @@ local function cursorUp(n: number): string
 	return `{ESC}{n}A`
 end
 
-local function barColor(fraction: number): (text: string) -> string
+local function barColor(fraction: number): richterm.Formatter
 	if fraction <= 0.25 then
 		return richterm.red
 	elseif fraction <= 0.50 then

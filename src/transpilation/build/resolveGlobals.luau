@@ -1,19 +1,10 @@
 const pp = require "@rose/batteries/pp"
+const types = require "@rose/transpilation/types"
 const query = require "@std/syntax/query"
 const syntax = require "@std/syntax"
 const utils = require "@std/syntax/utils"
 
-export type Globals = { [string]: { value: unknown? } }
-
-export type TransformerContext = {
-	tree: syntax.ParseResult?,
-	filepath: string,
-	source: string,
-	globals: Globals,
-	sourcemapIndices: { [string]: string },
-}
-
-local function resolveGlobals(context: TransformerContext)
+const resolveGlobals: types.Transformer = function(context: types.TransformerContext)
 	return query
 		.findAllFromRoot(context.tree, utils.isExprIndexName)
 		:filter(function(expression: syntax.AstExprIndexName): boolean
