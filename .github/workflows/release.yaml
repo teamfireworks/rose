@@ -35,10 +35,6 @@ jobs:
                       target: ubuntu-24.04-arm
                       binary: rose
 
-                    - artifact-name: rose-macos-x86_64
-                      target: macos-26-intel
-                      binary: rose
-
                     - artifact-name: rose-macos-aarch64
                       target: macos-latest
                       binary: rose
