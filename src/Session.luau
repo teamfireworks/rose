@@ -1,5 +1,5 @@
 const result = require "@rose/batteries/result"
-const insertMapping = require "@rose/build/insertMapping"
+const insertMapping = require "@rose/insertMapping"
 const configuration = require "@rose/configuration"
 const copyInto = require "@rose/copyInto"
 const deepClone = require "@rose/deepClone"
@@ -9,7 +9,7 @@ const json = require "@std/json"
 const path = require "@std/path"
 const process = require "@std/process"
 const Watcher = require "@rose/sourcemap/Watcher"
-const Log = require "@rose/build/Log"
+const Log = require "@rose/Log"
 const indexSourcemap = require "@rose/sourcemap/indexSourcemap"
 const transformers = require "@rose/transpilation/transformers"
 const transpile = require "@rose/transpilation/transpile"
@@ -99,13 +99,13 @@ function Session.getRojoProject(self: Session, kind: "build" | "sourcemap")
 			const baseDir = kind == "build" and self:getMemberBuildDir(member) or member.dirPath
 			for dir, segments in dirMappings do
 				const mappingDir = path.join(baseDir, dir)
-				insertMapping(tree, segments, member.name, mappingDir)
+				insertMapping(tree, segments, member.folderName or member.name, mappingDir)
 			end
 		end
 
 		if member.placeMixin then
 			const mixinDir = kind == "build" and self:getMemberBuildDir(member) or member.dirPath
-			insertMapping(tree, member.placeMixin.mapping, member.name, mixinDir)
+			insertMapping(tree, member.placeMixin.mapping, member.folderName or member.name, mixinDir)
 		end
 	end
 
@@ -252,6 +252,8 @@ function Session.init(self: Session)
 		path.format(self.workspace.sourcemap),
 		path.format(self.workspace.sourcemapProject),
 	}, { stdio = "inherit" })
+
+	task.wait(0.5)
 
 	self:onSourcemapChanged()
 	self:processChanges()

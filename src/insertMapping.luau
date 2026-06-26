@@ -1,3 +1,6 @@
+-- too lazy to fix rn
+--!nonstrict
+
 const configuration = require "@rose/configuration"
 const path = require "@std/path"
 

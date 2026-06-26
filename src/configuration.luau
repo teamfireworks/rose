@@ -30,9 +30,6 @@ const Mapping = gt.build(gt.array(MappingSegment:type()))
 
 const Globals = gt.build(gt.dictionary(gt.string(), gt.table { value = gt.optional(gt.unknown()) }))
 const Profile = gt.build(gt.table { globals = gt.optional(Globals:type()) })
-const Casing = gt.build(
-	gt.union(gt.literal "camel", gt.literal "snake", gt.literal "pascal", gt.literal "kebab") :: "camel" | "snake" | "pascal" | "kebab"
-)
 
 const Workspace = gt.build(gt.table {
 	name = gt.string(),
@@ -53,7 +50,6 @@ const Workspace = gt.build(gt.table {
 			filename = gt.string(),
 		},
 		place = gt.table {
-			folderCasing = gt.optional(Casing),
 			baseProject = gt.optional(RojoProject:type()),
 			dirMappings = gt.dictionary(gt.string(), Mapping:type()),
 		},
@@ -92,7 +88,6 @@ export type MappingSegment = typeof(MappingSegment:type())
 export type Mapping = typeof(Mapping:type())
 export type Globals = typeof(Globals:type())
 export type Profile = typeof(Profile:type())
-export type Casing = typeof(Casing:type())
 export type Workspace = typeof(Workspace:type())
 export type Place = typeof(Place:type())
 export type PlaceMixin = typeof(PlaceMixin:type())
@@ -106,7 +101,6 @@ return table.freeze {
 	Mapping = Mapping,
 	Globals = Globals,
 	Profile = Profile,
-	Casing = Casing,
 	Workspace = Workspace,
 	Place = Place,
 	PlaceMixin = PlaceMixin,

@@ -1,4 +1,4 @@
-const Log = require "@rose/build/Log"
+const Log = require "@rose/Log"
 const syntax = require "@std/syntax"
 const types = require "@std/syntax/types"
 

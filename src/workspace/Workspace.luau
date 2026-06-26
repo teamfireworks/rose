@@ -28,6 +28,7 @@ type WorkspaceData = {
 }
 
 export type WorkspaceMember = {
+	folderName: string?,
 	name: string,
 	place: configuration.Place,
 	placeMixin: configuration.PlaceMixin,
@@ -55,6 +56,9 @@ const function tryResolveMember(dirPath: path.Pathlike): result.Result<Workspace
 	end
 
 	const member: WorkspaceMember = {
+		folderName = config.place and config.place.folderName
+			or config.placeMixin and config.placeMixin.folderName
+			or nil,
 		name = config.place and config.place.name or path.basename(dirPath) :: string,
 		place = config.place :: configuration.Place,
 		placeMixin = config.placeMixin :: configuration.PlaceMixin,
