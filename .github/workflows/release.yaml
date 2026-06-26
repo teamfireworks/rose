@@ -15,7 +15,7 @@ permissions:
 
 jobs:
     build:
-        name: Build (${{ matrix.artifact-name }})]
+        name: Build (${{ matrix.artifact-name }})
         runs-on: ${{ matrix.target }}
 
         strategy:
@@ -54,7 +54,7 @@ jobs:
               run: darklua process ./src/main.luau dist/main.luau
 
             - name: Build binary
-              run: lute build --output ${{ matrix.binary }} ./dist/main.luau
+              run: lute compile --output ${{ matrix.binary }} ./dist/main.luau
 
             - name: Create archive (Windows)
               if: matrix.target == 'windows-latest'
