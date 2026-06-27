@@ -1,4 +1,5 @@
 const CommandStore = require "@rose/cli/CommandStore"
+const format = require "@rose/cli/format"
 const runCommands = require "@rose/cli/runCommands"
 const process = require "@std/process"
 

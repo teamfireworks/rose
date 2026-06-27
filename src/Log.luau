@@ -1,8 +1,7 @@
 const richterm = require "@rose/batteries/richterm"
 const tableext = require "@std/tableext"
-const task = require "@std/task"
 
-export type LogKind = "add" | "change" | "remove" | "warn"
+export type LogKind = "add" | "change" | "remove" | "info" | "warn" | "error"
 
 export type LogMessage = {
 	kind: LogKind,
@@ -11,16 +10,19 @@ export type LogMessage = {
 }
 
 const LOG_STYLES: { [LogKind]: { formatter: richterm.Formatter, symbol: string } } = {
-	add = { formatter = richterm.green, symbol = "+" },
-	change = { formatter = richterm.cyan, symbol = "↻" },
-	remove = { formatter = richterm.red, symbol = "-" },
+	add = { formatter = richterm.combine(richterm.dim, richterm.green), symbol = "+" },
+	change = { formatter = richterm.combine(richterm.dim, richterm.cyan), symbol = "↻" },
+	remove = { formatter = richterm.combine(richterm.dim, richterm.red), symbol = "-" },
+
+	info = { formatter = richterm.white, symbol = "i" },
 	warn = { formatter = richterm.combine(richterm.yellow, richterm.bold), symbol = "!" },
+	error = { formatter = richterm.combine(richterm.red, richterm.bold), symbol = "X" },
 }
 
 const Log = {}
 Log.__index = Log
 
-export type Log = setmetatable<{ logs: { LogMessage }, onLog: (LogMessage) -> () }, typeof(Log)>
+export type Log = setmetatable<{ logs: { LogMessage }, outputLog: (LogMessage) -> () }, typeof(Log)>
 
 function Log.formatLog(message: LogMessage)
 	const style = LOG_STYLES[message.kind]
@@ -33,12 +35,12 @@ function Log.formatLog(message: LogMessage)
 		.. table.concat(tableext.map(message.lines, style.formatter :: (string) -> string), indent)
 end
 
-function Log.defaultOnLog(message: LogMessage)
+function Log.defaultOutputLog(message: LogMessage)
 	print(Log.formatLog(message))
 end
 
 function Log.new(): Log
-	return setmetatable({ logs = {}, onLog = Log.defaultOnLog }, Log)
+	return setmetatable({ logs = {}, outputLog = Log.defaultOutputLog }, Log)
 end
 
 function Log.push(self: Log, kind: LogKind, ...: string)
@@ -48,7 +50,7 @@ function Log.push(self: Log, kind: LogKind, ...: string)
 		timestamp = os.time(),
 	}
 	table.insert(self.logs, message)
-	task.spawn(self.onLog, message)
+	self.outputLog(message)
 end
 
 function Log.atAdd(self: Log, ...: string)
@@ -63,8 +65,16 @@ function Log.atRemove(self: Log, ...: string)
 	self:push("remove", ...)
 end
 
+function Log.atInfo(self: Log, ...: string)
+	self:push("info", ...)
+end
+
 function Log.atWarn(self: Log, ...: string)
 	self:push("warn", ...)
+end
+
+function Log.atError(self: Log, ...: string)
+	self:push("error", ...)
 end
 
 return table.freeze(Log)
