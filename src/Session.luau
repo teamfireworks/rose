@@ -172,7 +172,7 @@ function Session.processChanges(self: Session)
 				self:transpileFile(absolutePath)
 				self.log:atChange(self:getDisplayPath(absolutePath))
 			elseif action == "remove" then
-				fs.remove(absolutePath)
+				pcall(fs.remove, self:getOutputFilepath(absolutePath))
 				self.log:atRemove(self:getDisplayPath(absolutePath))
 			end
 		end
