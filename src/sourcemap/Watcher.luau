@@ -5,7 +5,7 @@ const Watcher = {}
 Watcher.__index = Watcher
 
 export type Watcher = setmetatable<{
-	changes: { [string]: "added" | "changed" | "removed" },
+	changes: { [string]: "add" | "change" | "remove" },
 	watchers: { [string]: typeof(fs.watch(...)) },
 	previousIndices: types.Indices,
 	currentIndices: types.Indices,
@@ -25,7 +25,7 @@ function Watcher.onChanged(self: Watcher, nextIndices: types.Indices)
 
 	for absolutePath in nextIndices do
 		if not self.previousIndices[absolutePath] and not self.changes[absolutePath] then
-			self.changes[absolutePath] = "added"
+			self.changes[absolutePath] = "add"
 
 			local watcher = fs.watch(absolutePath)
 			self.watchers[absolutePath] = watcher
@@ -34,7 +34,7 @@ function Watcher.onChanged(self: Watcher, nextIndices: types.Indices)
 
 	for absolutePath in self.previousIndices do
 		if not nextIndices[absolutePath] and not self.changes[absolutePath] then
-			self.changes[absolutePath] = "removed"
+			self.changes[absolutePath] = "remove"
 		end
 	end
 
@@ -45,7 +45,7 @@ function Watcher.checkFileWatchers(self: Watcher)
 	for absolutePath, fileWatcher in self.watchers do
 		local event = fileWatcher:next()
 		if event then
-			if event.change then self.changes[absolutePath] = "changed" end
+			if event.change then self.changes[absolutePath] = "change" end
 		end
 	end
 end

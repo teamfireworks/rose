@@ -164,14 +164,14 @@ end
 
 function Session.processChanges(self: Session)
 	for absolutePath, action in self.watcher.changes do
-		if (action == "removed" or fs.exists(absolutePath)) and self:shouldTranspile(absolutePath) then
-			if action == "added" then
+		if (action == "remove" or fs.exists(absolutePath)) and self:shouldTranspile(absolutePath) then
+			if action == "add" then
 				self:transpileFile(absolutePath)
 				self.log:atAdd(self:getDisplayPath(absolutePath))
-			elseif action == "changed" then
+			elseif action == "change" then
 				self:transpileFile(absolutePath)
 				self.log:atChange(self:getDisplayPath(absolutePath))
-			elseif action == "removed" then
+			elseif action == "remove" then
 				fs.remove(absolutePath)
 				self.log:atRemove(self:getDisplayPath(absolutePath))
 			end
