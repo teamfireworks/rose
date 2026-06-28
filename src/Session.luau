@@ -148,10 +148,15 @@ function Session.transpileFile(self: Session, absolutePath: string)
 	if not fs.exists(outputDir) then fs.createDirectory(outputDir, { makeParents = true }) end
 
 	const source = fs.readFileToString(absolutePath)
+	const parseSuccess, treeOrError = pcall(syntax.parse, source)
+
+	if not parseSuccess then return self.log:atWarn(`Failed to parse {absolutePath}:`, tostring(treeOrError)) end
+
 	const outputSource = transpile(transformers.BUILD_TRANSFORMERS, {
-		tree = syntax.parse(source),
+		tree = treeOrError,
 		source = source,
 		filepath = absolutePath,
+
 		log = self.log,
 		globals = self:getGlobals(),
 		sourcemapIndices = self.watcher.currentIndices,

@@ -60,11 +60,6 @@ function dev.onRun()
 
 	const sessionLog = session.log
 
-	local isUiDirty = false
-	function sessionLog.outputLog()
-		isUiDirty = true
-	end
-
 	const banner = table.clone(format.BANNER_LINES)
 	for index, line in banner do
 		banner[index] = richterm.dim(richterm.red(line))
@@ -81,8 +76,7 @@ function dev.onRun()
 	const function renderUi()
 		print(string.rep("\n", 100))
 
-		for index = #session.log.logs, 1, -1 do
-			const message = session.log.logs[index]
+		for _, message in sessionLog.logs do
 			print(session.log.formatLog(message))
 		end
 
@@ -102,22 +96,20 @@ function dev.onRun()
 				print(`{formatKey " C "} Clear logs       {formatKey " L "} Toggle action list   {formatKey " Z "} Toggle this menu`)
 				-- stylua: ignore end
 			end
+
+			print()
 		end
 
-		print()
 		io.write "Input Action: "
 	end
+
+	sessionLog.outputLog = renderUi
 
 	task.spawn(function()
 		while task.wait(0.05) do
 			if sourcemapWatcher:next() then session:onSourcemapChanged() end
 			session.watcher:checkFileWatchers()
 			session:processChanges()
-
-			if isUiDirty then
-				isUiDirty = false
-				renderUi()
-			end
 		end
 	end)
 
@@ -128,16 +120,15 @@ function dev.onRun()
 			openStudio(session.memberPlace.placeId :: string)
 		elseif lastAction == "C" then
 			table.clear(session.log.logs)
-			isUiDirty = true
 		elseif lastAction == "L" then
 			showActions = not showActions
-			isUiDirty = true
 		elseif lastAction == "Z" then
 			showMenu = not showMenu
-			isUiDirty = true
 		else
 			session.log:atError(`Unknown command: {lastAction}`)
 		end
+
+		renderUi()
 	end
 end
 
